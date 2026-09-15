@@ -14,3 +14,7 @@ run = "bundle exec rake compile"
 
 [tasks.test]
 run = "bundle exec rake test"
+
+[tasks."test:interop"]
+depends = ["compile"]
+run = ["bundle exec ruby test/interop/write_fixtures.rb", "node test/fixtures/interop.mjs"]
