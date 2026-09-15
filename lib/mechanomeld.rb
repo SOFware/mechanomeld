@@ -2,6 +2,7 @@
 
 require_relative "mechanomeld/version"
 require_relative "mechanomeld/error"
+require_relative "mechanomeld/scalars"
 
 # Precompiled gems ship one binary per Ruby minor version; source builds put it in lib/mechanomeld.
 begin
