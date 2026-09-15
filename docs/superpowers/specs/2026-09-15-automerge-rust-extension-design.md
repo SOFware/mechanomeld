@@ -246,6 +246,7 @@ require "reissue/gem"
 Reissue::Task.create :reissue do |task|
   task.version_file = "lib/mechanomeld/version.rb"
   task.fragment = :git
+  task.push_reissue = :branch   # 0.5.1 default; shared workflow "Option A" (it opens the bump PR)
 end
 ```
 
