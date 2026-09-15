@@ -2,8 +2,8 @@ use std::cell::{Ref, RefCell, RefMut};
 use std::str::FromStr;
 
 use automerge::{
-    transaction::Transactable, ActorId, AutoCommit, LoadOptions, ObjType, ReadDoc, TextEncoding,
-    ROOT,
+    transaction::{CommitOptions, Transactable},
+    ActorId, AutoCommit, LoadOptions, ObjType, ReadDoc, TextEncoding, ROOT,
 };
 use magnus::{
     prelude::*,
@@ -135,6 +135,32 @@ impl Document {
                 .map_err(|e| automerge_error(ruby, e))?;
         }
         Ok(rb_self)
+    }
+
+    /// `doc.commit(message: nil, timestamp: nil)`: the binary change hash, or nil.
+    /// `timestamp` is Unix seconds (automerge's commit time), unlike Timestamp values.
+    pub fn commit(ruby: &Ruby, rb_self: &Self, args: &[Value]) -> Result<Option<RString>, Error> {
+        let args = scan_args::<(), (), (), (), RHash, ()>(args)?;
+        let kwargs = get_kwargs::<_, (), (Option<Option<String>>, Option<Option<i64>>), ()>(
+            args.keywords,
+            &[],
+            &["message", "timestamp"],
+        )?;
+        let (message, timestamp) = kwargs.optional;
+        let mut options = CommitOptions::default();
+        if let Some(Some(message)) = message {
+            options = options.with_message(message);
+        }
+        if let Some(Some(seconds)) = timestamp {
+            options = options.with_time(seconds);
+        }
+        let hash = rb_self.doc_mut(ruby)?.commit_with(options);
+        Ok(hash.map(|hash| ruby.str_from_slice(&hash.0)))
+    }
+
+    /// `doc.rollback`: the number of pending operations discarded.
+    pub fn rollback(ruby: &Ruby, rb_self: &Self) -> Result<usize, Error> {
+        Ok(rb_self.doc_mut(ruby)?.rollback())
     }
 
     /// `doc.save`: the document as a binary String.

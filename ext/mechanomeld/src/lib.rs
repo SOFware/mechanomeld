@@ -20,6 +20,8 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     class.define_method("length", method!(Document::length, -1))?;
     class.define_method("put", method!(Document::put, 2))?;
     class.define_method("delete", method!(Document::delete, 1))?;
+    class.define_method("commit", method!(Document::commit, -1))?;
+    class.define_method("rollback", method!(Document::rollback, 0))?;
     class.define_method("save", method!(Document::save, 0))?;
     Ok(())
 }
