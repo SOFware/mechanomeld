@@ -43,7 +43,9 @@ Cargo.lock
 ext/mechanomeld/
   Cargo.toml                    magnus, rb-sys, automerge (linker flags come from rb_sys mkmf)
   extconf.rb                    require "rb_sys/mkmf"; create_rust_makefile("mechanomeld/mechanomeld")
-  src/lib.rs                    #[magnus::init]: defines Mechanomeld::Document methods, Mechanomeld::Error lookup
+  src/lib.rs                    #[magnus::init]: defines Mechanomeld::Document methods
+  src/classes.rs                lazy lookups of Mechanomeld::Error and the scalar classes
+  src/errors.rs                 Mechanomeld::Error / TypeError / ArgumentError constructors
   src/document.rs               Document wrapper and methods
   src/read.rs                   Automerge value -> Ruby value
   src/write.rs                  Ruby value -> Automerge put operations
@@ -56,7 +58,7 @@ test/fixtures/package.json      pins @automerge/automerge 3.4.1
 test/fixtures/generate.mjs      writes *.automerge fixtures (committed)
 test/fixtures/interop.mjs       loads Ruby-saved bytes and asserts contents
 test/interop/write_fixtures.rb  writes Ruby-created documents to test/interop/out/ for interop.mjs
-test/**/*_test.rb               Minitest
+test/test_*.rb                  Minitest (the skeleton's naming convention)
 mise.toml
 CHANGELOG.md
 .github/workflows/test.yml
@@ -128,8 +130,8 @@ Used by every read and write method.
 | `Document.load(bytes)` | `Document` | Invalid bytes raise `Mechanomeld::Error` |
 | `doc.get(path)` / `doc[path]` | value | Missing key/index anywhere along the path returns `nil` |
 | `doc.to_h` (alias `to_hash`) | `Hash` | `get([])` |
-| `doc.keys(path = [])` | `Array<String>` | Target must be a map, else `Mechanomeld::Error` |
-| `doc.length(path = [])` | `Integer` | Map: key count; list: element count; text: code points |
+| `doc.keys(path = [])` | `Array<String>` | Target must be an existing map, else `Mechanomeld::Error` |
+| `doc.length(path = [])` | `Integer` | Map: key count; list: element count; text: code points. Missing path raises `Mechanomeld::Error` |
 
 ### Automerge to Ruby
 
@@ -201,8 +203,7 @@ run = ["bundle install", "npm ci --prefix test/fixtures"]
 run = "bundle exec rake compile"
 
 [tasks.test]
-depends = ["compile"]
-run = "bundle exec rake test"
+run = "bundle exec rake test"   # rake's test task depends on compile
 
 [tasks.fixtures]
 run = "node test/fixtures/generate.mjs"
@@ -220,8 +221,12 @@ rb-sys-dock); mise tasks wrap it.
 - gemspec: `spec.extensions = ["ext/mechanomeld/extconf.rb"]`; `spec.files` includes `ext/**`,
   `Cargo.toml`, `Cargo.lock`; runtime dependency `rb_sys`.
 - Gemfile: `rake-compiler`, `reissue`.
-- Rakefile: `RbSys::ExtensionTask.new("mechanomeld", GEMSPEC) { |ext| ext.lib_dir = "lib/mechanomeld"; ext.cross_compile = true; ext.cross_platform = PLATFORMS }`.
-  `build` must not depend on `compile` (the shared release workflow has no Rust).
+- Rakefile: `RbSys::ExtensionTask.new("mechanomeld", GEMSPEC) { |ext| ext.lib_dir = "lib/mechanomeld" }`
+  and `task test: :compile`. No platform list: rb_sys reads the target from `RUBY_TARGET`, which
+  `oxidize-rb/actions/cross-gem` sets. `build` must not depend on `compile` (the shared release
+  workflow has no Rust).
+- `rake build` runs reissue's bump and finalize (which commit), so verify packaging locally with
+  `gem build mechanomeld.gemspec`, never `rake build`.
 - Platform gemspecs need no custom `cross_compiling` block: rb_sys's `ExtensionTask` already drops
   the `rb_sys` dependency and `.rs`/`Cargo.*`/extconf files, and rake-compiler clears
   `extensions` and bounds `required_ruby_version` to the cross-compiled Ruby range, so a Ruby
@@ -277,8 +282,8 @@ Prerequisite: RubyGems Trusted Publishing configured for `release.yml`.
 
 - **Fixtures** (`generate.mjs`, JS `@automerge/automerge` 3.4.1, committed binaries):
   nested maps and lists, JS default strings (text objects), `ImmutableString` (scalar strings),
-  counter, `Date` (timestamp), `Uint`-typed value, `Uint8Array` (bytes), `null`, floats,
-  a document with a concurrent conflict, and invalid bytes.
+  counter, `Date` (timestamp), `new Uint(7)` (reads back in JS as a BigInt), `Uint8Array` (bytes),
+  `null`, floats, and a document with a concurrent conflict. Invalid bytes are an inline test string.
 - **Phase 1 tests**: every row of the Automerge→Ruby table; path rules and errors; `keys`/`length`
   on map, list, text; `to_h` of the full fixture equals an expected Hash.
 - **Phase 2 tests**: every row of the Ruby→Automerge table; `commit` return values; `rollback`;
