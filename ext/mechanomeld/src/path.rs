@@ -93,3 +93,25 @@ pub fn resolve_existing(
 ) -> Result<(ObjId, ObjType), Error> {
     resolve(ruby, doc, segments)?.ok_or_else(|| error(ruby, "path does not exist"))
 }
+
+/// The prop for writing `segment` into `obj`. List indexes must already exist.
+pub fn write_prop(
+    ruby: &Ruby,
+    doc: &AutoCommit,
+    obj: &ObjId,
+    obj_type: ObjType,
+    segment: Value,
+) -> Result<Prop, Error> {
+    if obj_type != ObjType::List {
+        return prop(ruby, obj_type, segment);
+    }
+    let index = index(ruby, segment)?;
+    let length = doc.length(obj);
+    if index >= length {
+        return Err(error(
+            ruby,
+            format!("list index {index} is out of bounds (length {length})"),
+        ));
+    }
+    Ok(Prop::Seq(index))
+}

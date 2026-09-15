@@ -7,6 +7,10 @@ module Mechanomeld
       get(path)
     end
 
+    def []=(path, value)
+      put(path, value)
+    end
+
     def to_h
       get([])
     end
