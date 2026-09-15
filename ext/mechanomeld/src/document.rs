@@ -1,7 +1,7 @@
 use std::cell::{Ref, RefCell};
 
 use automerge::{AutoCommit, LoadOptions, ObjType, ReadDoc, TextEncoding, ROOT};
-use magnus::{prelude::*, Error, RString, Ruby, Value};
+use magnus::{prelude::*, scan_args::scan_args, Error, RArray, RString, Ruby, Value};
 
 use crate::errors::{automerge_error, error};
 use crate::{path, read};
@@ -50,4 +50,28 @@ impl Document {
             None => Ok(ruby.qnil().as_value()),
         }
     }
+
+    /// `doc.keys(path = [])`
+    pub fn keys(ruby: &Ruby, rb_self: &Self, args: &[Value]) -> Result<RArray, Error> {
+        let segments = optional_path(ruby, args)?;
+        let doc = rb_self.doc(ruby)?;
+        let (obj, obj_type) = path::resolve_existing(ruby, &doc, &segments)?;
+        if obj_type != ObjType::Map {
+            return Err(error(ruby, "keys target must be an Automerge map"));
+        }
+        Ok(ruby.ary_from_iter(doc.keys(&obj)))
+    }
+
+    /// `doc.length(path = [])`
+    pub fn length(ruby: &Ruby, rb_self: &Self, args: &[Value]) -> Result<usize, Error> {
+        let segments = optional_path(ruby, args)?;
+        let doc = rb_self.doc(ruby)?;
+        let (obj, _) = path::resolve_existing(ruby, &doc, &segments)?;
+        Ok(doc.length(&obj))
+    }
+}
+
+fn optional_path(ruby: &Ruby, args: &[Value]) -> Result<Vec<Value>, Error> {
+    let args = scan_args::<(), (Option<Value>,), (), (), (), ()>(args)?;
+    path::segments(args.optional.0.unwrap_or_else(|| ruby.qnil().as_value()))
 }

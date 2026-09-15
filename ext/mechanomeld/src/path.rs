@@ -84,3 +84,12 @@ pub fn resolve(
     }
     Ok(Some((obj, obj_type)))
 }
+
+/// Like [`resolve`], but a missing key or index is an error.
+pub fn resolve_existing(
+    ruby: &Ruby,
+    doc: &AutoCommit,
+    segments: &[Value],
+) -> Result<(ObjId, ObjType), Error> {
+    resolve(ruby, doc, segments)?.ok_or_else(|| error(ruby, "path does not exist"))
+}
