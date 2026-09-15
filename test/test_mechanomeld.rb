@@ -7,7 +7,7 @@ class TestMechanomeld < Minitest::Test
     refute_nil ::Mechanomeld::VERSION
   end
 
-  def test_it_does_something_useful
-    assert false
+  def test_native_extension_defines_document
+    assert_kind_of Class, Mechanomeld::Document
   end
 end

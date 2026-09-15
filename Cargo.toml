@@ -1,0 +1,3 @@
+[workspace]
+members = ["ext/mechanomeld"]
+resolver = "2"

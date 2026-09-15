@@ -1,0 +1,13 @@
+[tools]
+ruby = "4.0"
+rust = "1.90"
+node = "24"
+
+[tasks.setup]
+run = "bundle install"
+
+[tasks.compile]
+run = "bundle exec rake compile"
+
+[tasks.test]
+run = "bundle exec rake test"

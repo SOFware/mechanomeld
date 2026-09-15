@@ -6,3 +6,10 @@
 /pkg/
 /spec/reports/
 /tmp/
+/target/
+/lib/mechanomeld/*.bundle
+/lib/mechanomeld/*.so
+/lib/mechanomeld/[0-9]*/
+/test/fixtures/node_modules/
+/test/interop/out/
+*.gem

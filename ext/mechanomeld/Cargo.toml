@@ -1,0 +1,13 @@
+[package]
+name = "mechanomeld"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+automerge = "0.11"
+magnus = "0.8"
+rb-sys = "0.9.130"

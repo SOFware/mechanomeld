@@ -1,0 +1,8 @@
+use magnus::{prelude::*, Error, Ruby};
+
+#[magnus::init]
+fn init(ruby: &Ruby) -> Result<(), Error> {
+    let module = ruby.define_module("Mechanomeld")?;
+    module.define_class("Document", ruby.class_object())?;
+    Ok(())
+}
