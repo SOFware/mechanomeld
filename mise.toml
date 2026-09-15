@@ -4,7 +4,10 @@ rust = "1.90"
 node = "24"
 
 [tasks.setup]
-run = "bundle install"
+run = ["bundle install", "npm ci --prefix test/fixtures"]
+
+[tasks.fixtures]
+run = "node test/fixtures/generate.mjs"
 
 [tasks.compile]
 run = "bundle exec rake compile"

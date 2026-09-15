@@ -11,3 +11,5 @@ begin
 rescue LoadError
   require_relative "mechanomeld/mechanomeld"
 end
+
+require_relative "mechanomeld/document"
