@@ -1,35 +1,68 @@
 # Mechanomeld
 
-TODO: Delete this and the text below, and describe your gem
-
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/mechanomeld`. To experiment with that code, run `bin/console` for an interactive prompt.
+Read and write [Automerge](https://automerge.org) documents from Ruby. Mechanomeld is a native extension around the Rust `automerge` crate, so documents round-trip with JavaScript's `@automerge/automerge`.
 
 ## Installation
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
-
-Install the gem and add to the application's Gemfile by executing:
-
 ```bash
-bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+bundle add mechanomeld
 ```
 
-If bundler is not being used to manage dependencies, install the gem by executing:
-
-```bash
-gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
-```
+Precompiled gems are published for arm64/x86_64 macOS and Linux on Ruby 3.2–4.0. Other platforms build from source and need a Rust toolchain.
 
 ## Usage
 
-TODO: Write usage instructions here
+```ruby
+require "mechanomeld"
+
+doc = Mechanomeld::Document.load(File.binread("todos.automerge"))
+doc.get(["todos", 0, "title"]) # => #<Mechanomeld::Text "Buy milk">
+doc.to_h                       # => {"todos" => [{"title" => #<Mechanomeld::Text "Buy milk">, ...}]}
+doc.keys                       # => ["todos"]
+doc.length("todos")            # => 1
+
+doc = Mechanomeld::Document.from({"title" => Mechanomeld::Text.new("Groceries"), "items" => []})
+doc.change(message: "Add milk") do |d|
+  d["count"] = Mechanomeld::Counter.new(1)
+end
+File.binwrite("groceries.automerge", doc.save)
+```
+
+### Values
+
+| Automerge | Ruby |
+|---|---|
+| map / list | `Hash` (String keys) / `Array` |
+| text object | `Mechanomeld::Text` |
+| string | `String` |
+| int / f64 / boolean / null | `Integer` / `Float` / `true`, `false` / `nil` |
+| counter / uint | `Mechanomeld::Counter` / `Mechanomeld::Uint` |
+| timestamp | `Mechanomeld::Timestamp` (milliseconds since the epoch) |
+| bytes | `Mechanomeld::Bytes` |
+
+JavaScript stores strings as text objects by default, so they read as `Mechanomeld::Text`. A Ruby `String` is written as an Automerge string, which JavaScript reads as an `ImmutableString`; write `Mechanomeld::Text.new("...")` to create text JavaScript reads as a plain string.
+
+Errors from Automerge raise `Mechanomeld::Error`.
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+Tools are pinned in `mise.toml`.
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+```bash
+mise trust
+mise install
+mise run setup         # bundle install, npm ci for fixtures
+mise run test          # compile the extension and run the tests
+mise run test:interop  # check JavaScript reads Ruby-written documents
+mise run fixtures      # regenerate test/fixtures/*.automerge
+```
+
+Check packaging with `gem build mechanomeld.gemspec`. Do not run `rake build` or `rake release` locally: reissue bumps the version and commits during `build`.
+
+## Releasing
+
+Releases run from the **Release gem to RubyGems.org** GitHub Actions workflow. Changelog entries and version bumps come from commit trailers (`Added:`, `Changed:`, `Fixed:`, `Version: minor`, ...). Run it with `dry_run` first.
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/mechanomeld.
+Bug reports and pull requests are welcome on GitHub at https://github.com/SOFware/mechanomeld.

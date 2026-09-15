@@ -1,0 +1,75 @@
+name: Release gem to RubyGems.org
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Test the release without publishing to RubyGems"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  release:
+    uses: SOFware/reissue/.github/workflows/shared-ruby-gem-release.yml@main
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+    with:
+      git_user_email: "gems@sofwarellc.com"
+      git_user_name: "SOFware"
+      # ruby/setup-ruby in the shared workflow does not read mise.toml.
+      ruby_version: "4.0"
+      dry_run: ${{ inputs.dry_run }}
+
+  native:
+    name: Build ${{ matrix.platform }} gem
+    needs: release
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [arm64-darwin, x86_64-darwin, x86_64-linux, aarch64-linux]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: v${{ needs.release.outputs.version }}
+      - uses: oxidize-rb/actions/setup-ruby-and-rust@v1
+        with:
+          ruby-version: "4.0"
+          bundler-cache: true
+          cargo-cache: true
+      - id: cross-gem
+        uses: oxidize-rb/actions/cross-gem@v1
+        with:
+          platform: ${{ matrix.platform }}
+          ruby-versions: "3.2,3.3,3.4,4.0"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gem-${{ matrix.platform }}
+          path: ${{ steps.cross-gem.outputs.gem-path }}
+
+  publish-native:
+    name: Publish platform gems
+    needs: native
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: gem-*
+          merge-multiple: true
+          path: pkg
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "4.0"
+      - uses: rubygems/configure-rubygems-credentials@v2.1.0
+      - name: Push platform gems
+        run: |
+          for gem in pkg/*.gem; do
+            gem push "$gem"
+          done
