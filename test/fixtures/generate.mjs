@@ -1,9 +1,17 @@
 // Writes the .automerge fixtures read by the Ruby tests. Run with `mise run fixtures`.
 import * as A from "@automerge/automerge";
-import { writeFileSync } from "node:fs";
+import { Repo } from "@automerge/automerge-repo";
+import { NodeFSStorageAdapter } from "@automerge/automerge-repo-storage-nodefs";
+import { rmSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
-const save = (name, doc) =>
+// heads.json records Automerge.getHeads for each fixture, by name or repo document id,
+// so the Ruby tests can check Document#heads against it.
+const heads = {};
+const save = (name, doc) => {
   writeFileSync(new URL(`${name}.automerge`, import.meta.url), A.save(doc));
+  heads[name] = A.getHeads(doc);
+};
 
 const types = A.change(A.init(), (doc) => {
   doc.text = "héllo 😀";
@@ -33,3 +41,33 @@ b = A.change(b, (doc) => {
   doc.k = new A.ImmutableString("from-b");
 });
 save("conflict", A.merge(a, b));
+
+// A NodeFSStorageAdapter directory, as automerge-repo writes it, for Document.load_repo.
+// Document ids are fixed so test/test_document_load_repo.rb can name them.
+const repoDir = fileURLToPath(new URL("repo", import.meta.url));
+rmSync(repoDir, { recursive: true, force: true });
+const storage = new Repo({ storage: new NodeFSStorageAdapter(repoDir) }).storageSubsystem;
+
+const snapshotOnly = A.from({ count: new A.Counter(17), title: "snapshot only" });
+await storage.saveDoc("2be82g1cnxj1o64J7cFA5wPeyHms", snapshotOnly);
+
+// automerge-repo compacts every save into a new snapshot while the snapshot is under
+// 1024 bytes, so this document starts with enough items to get incremental chunks.
+const incrementalId = "3bTvdjpAxqE36opq4dAe5sD6ps6o";
+const items = Array.from({ length: 150 }, (_, i) => `item-${i}`);
+let incremental = A.from({ count: new A.Counter(1), items });
+await storage.saveDoc(incrementalId, incremental);
+incremental = A.change(incremental, (doc) => {
+  doc.count.increment(4);
+  doc.items.push("first");
+});
+await storage.saveDoc(incrementalId, incremental);
+incremental = A.change(incremental, (doc) => {
+  doc.count.increment(5);
+  doc.items.push("second");
+});
+await storage.saveDoc(incrementalId, incremental);
+await storage.saveSyncState(incrementalId, "peer-storage-id", A.initSyncState());
+heads[incrementalId] = A.getHeads(incremental);
+
+writeFileSync(new URL("heads.json", import.meta.url), JSON.stringify(heads, null, 2) + "\n");

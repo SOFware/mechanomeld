@@ -3,7 +3,8 @@ import * as A from "@automerge/automerge";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const doc = A.load(readFileSync(new URL("../interop/out/ruby.automerge", import.meta.url)));
+const out = (name) => readFileSync(new URL(`../interop/out/${name}`, import.meta.url));
+const doc = A.load(out("ruby.automerge"));
 
 assert.ok(doc.string instanceof A.ImmutableString, "Ruby String is an ImmutableString");
 assert.equal(String(doc.string), "plain");
@@ -21,5 +22,6 @@ assert.deepEqual(Array.from(doc.bytes), [0, 1, 255]);
 assert.equal(doc.nested.list[0], 1);
 assert.equal(String(doc.nested.list[1]), "two");
 assert.equal(doc.nested.list[2].three, 3);
+assert.deepEqual(A.getHeads(doc), JSON.parse(out("ruby.heads.json")), "Ruby heads match getHeads");
 
 console.log("interop ok");
