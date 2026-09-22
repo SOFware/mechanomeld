@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use automerge::{
     transaction::{CommitOptions, Transactable},
-    ActorId, AutoCommit, LoadOptions, ObjType, ReadDoc, TextEncoding, ROOT,
+    ActorId, AutoCommit, ChangeHash, LoadOptions, ObjType, ReadDoc, TextEncoding, ROOT,
 };
 use magnus::{
     prelude::*,
@@ -60,6 +60,21 @@ impl Document {
         Ok(Self {
             inner: RefCell::new(doc),
         })
+    }
+
+    /// `doc.load_incremental(bytes)`: applies a full save, snapshot, or incremental
+    /// change chunk into this document.
+    pub fn load_incremental(
+        ruby: &Ruby,
+        rb_self: Obj<Self>,
+        bytes: RString,
+    ) -> Result<Obj<Self>, Error> {
+        let data = unsafe { bytes.as_slice() }.to_vec();
+        rb_self
+            .doc_mut(ruby)?
+            .load_incremental(&data)
+            .map_err(|e| error(ruby, format!("could not load Automerge document: {e}")))?;
+        Ok(rb_self)
     }
 
     /// `doc.get(path)`: the value at `path`, or nil when anything along it is missing.
@@ -168,6 +183,30 @@ impl Document {
         let bytes = rb_self.doc_mut(ruby)?.save();
         Ok(ruby.str_from_slice(&bytes))
     }
+
+    /// `doc.heads`: the current heads as lowercase hex change hashes, the format
+    /// JavaScript's `Automerge.getHeads` returns.
+    pub fn heads(ruby: &Ruby, rb_self: &Self) -> Result<RArray, Error> {
+        let heads = rb_self.doc_mut(ruby)?.get_heads();
+        Ok(ruby.ary_from_iter(heads.iter().map(ChangeHash::to_string)))
+    }
+
+    /// `doc.includes_heads?(heads)`: whether every hex change hash in `heads` is a
+    /// change this document already contains.
+    pub fn includes_heads(ruby: &Ruby, rb_self: &Self, heads: Vec<String>) -> Result<bool, Error> {
+        let hashes = heads
+            .iter()
+            .map(|hex| change_hash(ruby, hex))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut doc = rb_self.doc_mut(ruby)?;
+        Ok(hashes
+            .iter()
+            .all(|hash| doc.get_change_meta_by_hash(hash).is_some()))
+    }
+}
+
+fn change_hash(ruby: &Ruby, hex: &str) -> Result<ChangeHash, Error> {
+    ChangeHash::from_str(hex).map_err(|e| error(ruby, format!("invalid change hash {hex:?}: {e}")))
 }
 
 fn optional_path(ruby: &Ruby, args: &[Value]) -> Result<Vec<Value>, Error> {

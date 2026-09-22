@@ -28,6 +28,27 @@ end
 File.binwrite("groceries.automerge", doc.save)
 ```
 
+### Documents stored by automerge-repo
+
+`Document.load_repo` reads a document straight out of the directory written by `@automerge/automerge-repo`'s `NodeFSStorageAdapter`, applying its snapshot and incremental chunks and skipping its sync-state files.
+
+```ruby
+doc = Mechanomeld::Document.load_repo("automerge-repo-data", "4NtRZtd6yUtzf8qmEpKitAaW4JRp")
+```
+
+`Document#load_incremental(bytes)` is the piece underneath: it applies any saved Automerge bytes (a full save, a snapshot chunk, or an incremental change chunk) into an existing document and returns the document.
+
+### Heads
+
+`Document#heads` is the document's version: the change hashes JavaScript's `Automerge.getHeads(doc)` returns, as lowercase hex, so the two sides compare with `==`. `Document#includes_heads?(heads)` is true when every hash in `heads` is a change the document already contains, so `heads` is the same version or an older one.
+
+```ruby
+doc.heads                  # => ["9d434616e7af865757bad75cdebe4151bccf7e29214a71f2a65150846c2a4275"]
+doc.includes_heads?(heads) # => true when the document is at or past `heads`
+```
+
+Both take hex. automerge-repo's `handle.heads()` returns base58 URL heads, which are not accepted; send `Automerge.getHeads(handle.doc())` from JavaScript instead. A hash that is not 32 bytes of hex raises `Mechanomeld::Error`; a well-formed hash the document does not have is simply not included. Like `save`, both commit any pending change first.
+
 ### Values
 
 | Automerge | Ruby |
@@ -54,7 +75,7 @@ mise install
 mise run setup         # bundle install, npm ci for fixtures
 mise run test          # compile the extension and run the tests
 mise run test:interop  # check JavaScript reads Ruby-written documents
-mise run fixtures      # regenerate test/fixtures/*.automerge
+mise run fixtures      # regenerate test/fixtures/*.automerge, heads.json, and repo/
 ```
 
 Check packaging with `gem build mechanomeld.gemspec`. Do not run `rake build` or `rake release` locally: reissue bumps the version and commits during `build`.

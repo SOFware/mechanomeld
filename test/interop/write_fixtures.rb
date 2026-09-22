@@ -4,6 +4,7 @@
 $LOAD_PATH.unshift File.expand_path("../../lib", __dir__)
 require "mechanomeld"
 require "fileutils"
+require "json"
 
 out = File.expand_path("out", __dir__)
 FileUtils.mkdir_p(out)
@@ -23,3 +24,4 @@ doc = Mechanomeld::Document.from({
 })
 
 File.binwrite(File.join(out, "ruby.automerge"), doc.save)
+File.write(File.join(out, "ruby.heads.json"), JSON.generate(doc.heads))
