@@ -2,6 +2,7 @@ use std::cell::{Ref, RefCell, RefMut};
 use std::str::FromStr;
 
 use automerge::{
+    sync::{Message, SyncDoc},
     transaction::{CommitOptions, Transactable},
     ActorId, AutoCommit, ChangeHash, LoadOptions, ObjType, ReadDoc, TextEncoding, ROOT,
 };
@@ -13,6 +14,7 @@ use magnus::{
 };
 
 use crate::errors::{arg_error, automerge_error, error};
+use crate::sync_state::SyncState;
 use crate::{path, read, write};
 
 /// Text indexes count Unicode code points, matching Ruby's `String#length`.
@@ -202,6 +204,40 @@ impl Document {
         Ok(hashes
             .iter()
             .all(|hash| doc.get_change_meta_by_hash(hash).is_some()))
+    }
+
+    /// `doc.generate_sync_message(sync_state)`: the next binary message for the peer
+    /// `sync_state` tracks, or nil when there is nothing to send.
+    pub fn generate_sync_message(
+        ruby: &Ruby,
+        rb_self: &Self,
+        sync_state: &SyncState,
+    ) -> Result<Option<RString>, Error> {
+        let mut doc = rb_self.doc_mut(ruby)?;
+        let mut state = sync_state.state_mut(ruby)?;
+        let message = doc.sync().generate_sync_message(&mut state);
+        Ok(message.map(|message| ruby.str_from_slice(&message.encode())))
+    }
+
+    /// `doc.receive_sync_message(sync_state, bytes)`: applies a peer's message to this
+    /// document and to `sync_state`.
+    pub fn receive_sync_message(
+        ruby: &Ruby,
+        rb_self: Obj<Self>,
+        sync_state: &SyncState,
+        bytes: RString,
+    ) -> Result<Obj<Self>, Error> {
+        let data = unsafe { bytes.as_slice() }.to_vec();
+        let message = Message::decode(&data)
+            .map_err(|e| error(ruby, format!("could not decode sync message: {e}")))?;
+        {
+            let mut doc = rb_self.doc_mut(ruby)?;
+            let mut state = sync_state.state_mut(ruby)?;
+            doc.sync()
+                .receive_sync_message(&mut state, message)
+                .map_err(|e| automerge_error(ruby, e))?;
+        }
+        Ok(rb_self)
     }
 }
 

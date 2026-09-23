@@ -3,11 +3,13 @@ mod document;
 mod errors;
 mod path;
 mod read;
+mod sync_state;
 mod write;
 
 use magnus::{function, method, prelude::*, Error, Ruby};
 
 use crate::document::Document;
+use crate::sync_state::SyncState;
 
 #[magnus::init]
 fn init(ruby: &Ruby) -> Result<(), Error> {
@@ -26,5 +28,17 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     class.define_method("save", method!(Document::save, 0))?;
     class.define_method("heads", method!(Document::heads, 0))?;
     class.define_method("includes_heads?", method!(Document::includes_heads, 1))?;
+    class.define_method(
+        "generate_sync_message",
+        method!(Document::generate_sync_message, 1),
+    )?;
+    class.define_method(
+        "receive_sync_message",
+        method!(Document::receive_sync_message, 2),
+    )?;
+    let sync_state = module.define_class("SyncState", ruby.class_object())?;
+    sync_state.define_singleton_method("new", function!(SyncState::new, 0))?;
+    sync_state.define_singleton_method("decode", function!(SyncState::decode, 1))?;
+    sync_state.define_method("encode", method!(SyncState::encode, 0))?;
     Ok(())
 }

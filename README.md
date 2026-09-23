@@ -49,6 +49,32 @@ doc.includes_heads?(heads) # => true when the document is at or past `heads`
 
 Both take hex. automerge-repo's `handle.heads()` returns base58 URL heads, which are not accepted; send `Automerge.getHeads(handle.doc())` from JavaScript instead. A hash that is not 32 bytes of hex raises `Mechanomeld::Error`; a well-formed hash the document does not have is simply not included. Like `save`, both commit any pending change first.
 
+### Syncing with a peer
+
+`Document#generate_sync_message` and `Document#receive_sync_message` run Automerge's per-document sync protocol, so a Ruby document can exchange just the changes each side lacks with another Automerge peer: JavaScript's `Automerge.generateSyncMessage` / `receiveSyncMessage`, or another Ruby document. A `Mechanomeld::SyncState` tracks what one peer is known to have; keep one per peer for each document.
+
+```ruby
+left = Mechanomeld::Document.load(bytes)
+right = Mechanomeld::Document.load(bytes)
+left.change { |d| d["left"] = 1 }
+right.change { |d| d["right"] = 2 }
+
+left_state = Mechanomeld::SyncState.new  # left's view of right
+right_state = Mechanomeld::SyncState.new # right's view of left
+loop do
+  to_right = left.generate_sync_message(left_state)
+  right.receive_sync_message(right_state, to_right) if to_right
+  to_left = right.generate_sync_message(right_state)
+  left.receive_sync_message(left_state, to_left) if to_left
+  break if to_right.nil? && to_left.nil?
+end
+left.heads == right.heads # => true
+```
+
+Messages are binary Strings. `generate_sync_message` returns nil when the peer is up to date or the last message is still unanswered. `SyncState#encode` and `SyncState.decode(bytes)` carry a state across connections, keeping only the heads both sides are known to share (as JavaScript's `encodeSyncState` does), so a process that handles one message per request can decode, receive, generate, and encode again. Like `save`, both sync methods commit any pending change first. Bytes that are not a sync message or a sync state raise `Mechanomeld::Error`. The protocol carries no document identity: a message from a peer holding a different document merges that document in.
+
+This is the per-document protocol only. An automerge-repo sync server wraps these messages in its own envelope (peer and document ids, join and leave messages, CBOR encoding), which this gem does not provide.
+
 ### Values
 
 | Automerge | Ruby |
