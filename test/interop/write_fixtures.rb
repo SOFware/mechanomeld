@@ -25,3 +25,12 @@ doc = Mechanomeld::Document.from({
 
 File.binwrite(File.join(out, "ruby.automerge"), doc.save)
 File.write(File.join(out, "ruby.heads.json"), JSON.generate(doc.heads))
+
+# The Ruby peer for interop.mjs's sync exchange: the types fixture plus one change of its
+# own, with a fresh sync state. test/interop/sync_step.rb takes its turns from here.
+sync_dir = File.join(out, "sync")
+FileUtils.mkdir_p(sync_dir)
+peer = Mechanomeld::Document.load(File.binread(File.expand_path("../fixtures/types.automerge", __dir__)))
+peer.change { |d| d["ruby"] = Mechanomeld::Text.new("from ruby") }
+File.binwrite(File.join(sync_dir, "ruby.automerge"), peer.save)
+File.binwrite(File.join(sync_dir, "ruby.syncstate"), Mechanomeld::SyncState.new.encode)
