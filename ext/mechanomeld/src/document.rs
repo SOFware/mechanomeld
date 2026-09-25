@@ -15,7 +15,7 @@ use magnus::{
 
 use crate::errors::{arg_error, automerge_error, error};
 use crate::sync_state::SyncState;
-use crate::{path, read, write};
+use crate::{diff, path, read, write};
 
 /// Text indexes count Unicode code points, matching Ruby's `String#length`.
 const ENCODING: TextEncoding = TextEncoding::UnicodeCodePoint;
@@ -206,6 +206,26 @@ impl Document {
             .all(|hash| doc.get_change_meta_by_hash(hash).is_some()))
     }
 
+    /// `doc.diff(from_heads, to_heads = heads)`: the patches that take the document from
+    /// `from_heads` to `to_heads`, as Hashes (see diff.rs for their shape). `[]` as
+    /// `from_heads` diffs from the empty document. Every head must be a change this
+    /// document contains.
+    pub fn diff(ruby: &Ruby, rb_self: &Self, args: &[Value]) -> Result<RArray, Error> {
+        let args = scan_args::<(Vec<String>,), (Option<Vec<String>>,), (), (), (), ()>(args)?;
+        let mut doc = rb_self.doc_mut(ruby)?;
+        let from = known_heads(ruby, &mut doc, &args.required.0)?;
+        let to = match args.optional.0 {
+            Some(heads) => known_heads(ruby, &mut doc, &heads)?,
+            None => doc.get_heads(),
+        };
+        let patches = doc.diff(&from, &to);
+        let array = ruby.ary_new_capa(patches.len());
+        for patch in &patches {
+            array.push(diff::patch(ruby, patch)?)?;
+        }
+        Ok(array)
+    }
+
     /// `doc.generate_sync_message(sync_state)`: the next binary message for the peer
     /// `sync_state` tracks, or nil when there is nothing to send.
     pub fn generate_sync_message(
@@ -243,6 +263,24 @@ impl Document {
 
 fn change_hash(ruby: &Ruby, hex: &str) -> Result<ChangeHash, Error> {
     ChangeHash::from_str(hex).map_err(|e| error(ruby, format!("invalid change hash {hex:?}: {e}")))
+}
+
+/// Parses hex change hashes, rejecting any change `doc` does not contain.
+fn known_heads(
+    ruby: &Ruby,
+    doc: &mut AutoCommit,
+    heads: &[String],
+) -> Result<Vec<ChangeHash>, Error> {
+    heads
+        .iter()
+        .map(|hex| {
+            let hash = change_hash(ruby, hex)?;
+            if doc.get_change_meta_by_hash(&hash).is_none() {
+                return Err(error(ruby, format!("unknown change hash {hex:?}")));
+            }
+            Ok(hash)
+        })
+        .collect()
 }
 
 fn optional_path(ruby: &Ruby, args: &[Value]) -> Result<Vec<Value>, Error> {
