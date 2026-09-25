@@ -1,4 +1,5 @@
 mod classes;
+mod diff;
 mod document;
 mod errors;
 mod path;
@@ -28,6 +29,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     class.define_method("save", method!(Document::save, 0))?;
     class.define_method("heads", method!(Document::heads, 0))?;
     class.define_method("includes_heads?", method!(Document::includes_heads, 1))?;
+    class.define_method("diff", method!(Document::diff, -1))?;
     class.define_method(
         "generate_sync_message",
         method!(Document::generate_sync_message, 1),

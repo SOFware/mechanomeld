@@ -49,6 +49,31 @@ doc.includes_heads?(heads) # => true when the document is at or past `heads`
 
 Both take hex. automerge-repo's `handle.heads()` returns base58 URL heads, which are not accepted; send `Automerge.getHeads(handle.doc())` from JavaScript instead. A hash that is not 32 bytes of hex raises `Mechanomeld::Error`; a well-formed hash the document does not have is simply not included. Like `save`, both commit any pending change first.
 
+### What changed between two versions
+
+`Document#diff(from_heads, to_heads = doc.heads)` is Automerge's diff: the patches that take the document from one version to another, as Hashes with String keys. Both arguments are hex heads as `Document#heads` returns them; `to_heads` defaults to the current heads, and `[]` as `from_heads` diffs from the empty document.
+
+```ruby
+before = doc.heads
+doc.change { |d| d[["scores", "bravo"]] = 7 }
+doc.diff(before)
+# => [{"action" => "put", "path" => ["scores", "bravo"], "value" => 7, "conflict" => false}]
+```
+
+Every patch has `"action"` and `"path"`. The path addresses the property the patch touches from the root, map keys as Strings and list indexes as Integers, as JavaScript's `Automerge.diff` reports it. The other keys depend on the action:
+
+| action | keys |
+|---|---|
+| `put` | `value`, `conflict` (true when this value won a concurrent write) |
+| `delete` | `index` and `length` when deleting from a list; nothing more for a map key |
+| `insert` | `values`, the elements inserted at `path`'s index, in order |
+| `splice_text` | `value`, the String spliced into a `Text` at `path`'s index |
+| `increment` | `value`, the amount a `Counter` changed by, which may be negative |
+| `conflict` | nothing more: a concurrent write now conflicts at `path` |
+| `mark` | `marks`, each `{"name", "value", "start", "end"}` on a `Text` |
+
+Putting or inserting a map, list, or `Text` yields the empty container (`{}`, `[]`, or `Mechanomeld::Text.new("")`); its contents follow as their own patches. Values use the same Ruby types as `get`. A head that is not hex, or that names a change the document does not contain, raises `Mechanomeld::Error`. Like `save`, `diff` commits any pending change first.
+
 ### Syncing with a peer
 
 `Document#generate_sync_message` and `Document#receive_sync_message` run Automerge's per-document sync protocol, so a Ruby document can exchange just the changes each side lacks with another Automerge peer: JavaScript's `Automerge.generateSyncMessage` / `receiveSyncMessage`, or another Ruby document. A `Mechanomeld::SyncState` tracks what one peer is known to have; keep one per peer for each document.
