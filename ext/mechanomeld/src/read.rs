@@ -72,7 +72,11 @@ pub fn scalar(ruby: &Ruby, scalar: &ScalarValue) -> Result<Value, Error> {
 }
 
 /// Builds a scalar wrapper by allocating it and setting `@value`, without running Ruby code.
-fn wrap(ruby: &Ruby, class: &'static Lazy<RClass>, value: impl IntoValue) -> Result<Value, Error> {
+pub fn wrap(
+    ruby: &Ruby,
+    class: &'static Lazy<RClass>,
+    value: impl IntoValue,
+) -> Result<Value, Error> {
     let instance = ruby.get_inner(class).obj_alloc()?;
     let object = RObject::try_convert(instance.as_value())?;
     object.ivar_set("@value", value)?;
