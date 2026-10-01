@@ -2,7 +2,7 @@
 
 module Mechanomeld
   # Native methods (new, load, load_incremental, get, keys, length, put, delete, commit,
-  # rollback, save, heads, includes_heads?, diff, generate_sync_message,
+  # rollback, save, heads, up_to_date_with?, diff, generate_sync_message,
   # receive_sync_message) are defined in ext/mechanomeld/src/document.rs.
   class Document
     def self.from(hash, actor_id: nil)
@@ -39,6 +39,8 @@ module Mechanomeld
       get([])
     end
     alias_method :to_hash, :to_h
+
+    alias_method :includes_heads?, :up_to_date_with?
 
     def change(message: nil, timestamp: nil)
       yield self

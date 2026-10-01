@@ -40,11 +40,11 @@ doc = Mechanomeld::Document.load_repo("automerge-repo-data", "4NtRZtd6yUtzf8qmEp
 
 ### Heads
 
-`Document#heads` is the document's version: the change hashes JavaScript's `Automerge.getHeads(doc)` returns, as lowercase hex, so the two sides compare with `==`. `Document#includes_heads?(heads)` is true when every hash in `heads` is a change the document already contains, so `heads` is the same version or an older one.
+`Document#heads` is the document's version: the change hashes JavaScript's `Automerge.getHeads(doc)` returns, as lowercase hex, so the two sides compare with `==`. `Document#up_to_date_with?(heads)` is true when the document is at the version `heads` names, or a later one: every hash in `heads` is a change the document already contains. `includes_heads?` is the same method under its older name.
 
 ```ruby
-doc.heads                  # => ["9d434616e7af865757bad75cdebe4151bccf7e29214a71f2a65150846c2a4275"]
-doc.includes_heads?(heads) # => true when the document is at or past `heads`
+doc.heads                   # => ["9d434616e7af865757bad75cdebe4151bccf7e29214a71f2a65150846c2a4275"]
+doc.up_to_date_with?(heads) # => true when the document is at or past `heads`
 ```
 
 Both take hex. automerge-repo's `handle.heads()` returns base58 URL heads, which are not accepted; send `Automerge.getHeads(handle.doc())` from JavaScript instead. A hash that is not 32 bytes of hex raises `Mechanomeld::Error`; a well-formed hash the document does not have is simply not included. Like `save`, both commit any pending change first.

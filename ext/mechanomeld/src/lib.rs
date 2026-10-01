@@ -28,7 +28,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     class.define_method("rollback", method!(Document::rollback, 0))?;
     class.define_method("save", method!(Document::save, 0))?;
     class.define_method("heads", method!(Document::heads, 0))?;
-    class.define_method("includes_heads?", method!(Document::includes_heads, 1))?;
+    class.define_method("up_to_date_with?", method!(Document::up_to_date_with, 1))?;
     class.define_method("diff", method!(Document::diff, -1))?;
     class.define_method(
         "generate_sync_message",
