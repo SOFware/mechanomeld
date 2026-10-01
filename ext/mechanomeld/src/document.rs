@@ -193,9 +193,10 @@ impl Document {
         Ok(ruby.ary_from_iter(heads.iter().map(ChangeHash::to_string)))
     }
 
-    /// `doc.includes_heads?(heads)`: whether every hex change hash in `heads` is a
-    /// change this document already contains.
-    pub fn includes_heads(ruby: &Ruby, rb_self: &Self, heads: Vec<String>) -> Result<bool, Error> {
+    /// `doc.up_to_date_with?(heads)`: whether this document is at the version `heads`
+    /// names, or a later one: every hex change hash in `heads` is a change it already
+    /// contains. Ruby also exposes it as `includes_heads?`.
+    pub fn up_to_date_with(ruby: &Ruby, rb_self: &Self, heads: Vec<String>) -> Result<bool, Error> {
         let hashes = heads
             .iter()
             .map(|hex| change_hash(ruby, hex))

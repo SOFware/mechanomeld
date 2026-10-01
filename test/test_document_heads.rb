@@ -85,4 +85,55 @@ class TestDocumentHeads < Minitest::Test
     error = assert_raises(Mechanomeld::Error) { @doc.includes_heads?(["abcd"]) }
     assert_match(/invalid change hash "abcd": incorrect length/, error.message)
   end
+
+  def test_up_to_date_with_its_own_heads
+    @doc.change { |doc| doc["k"] = 1 }
+    assert @doc.up_to_date_with?(@doc.heads)
+  end
+
+  def test_up_to_date_with_heads_captured_before_a_later_change
+    @doc.change { |doc| doc["k"] = 1 }
+    earlier = @doc.heads
+    @doc.change { |doc| doc["k"] = 2 }
+    assert @doc.up_to_date_with?(earlier)
+    assert @doc.up_to_date_with?(earlier + @doc.heads)
+  end
+
+  def test_up_to_date_with_an_empty_list_of_heads
+    assert @doc.up_to_date_with?([])
+  end
+
+  def test_not_up_to_date_with_heads_of_an_unrelated_document
+    @doc.change { |doc| doc["k"] = 1 }
+    other = Mechanomeld::Document.from({"k" => 1})
+    refute @doc.up_to_date_with?(other.heads)
+    refute @doc.up_to_date_with?(@doc.heads + other.heads)
+  end
+
+  def test_not_up_to_date_with_heads_of_a_later_version
+    @doc.change { |doc| doc["k"] = 1 }
+    earlier = Mechanomeld::Document.load(@doc.save)
+    @doc.change { |doc| doc["k"] = 2 }
+    refute earlier.up_to_date_with?(@doc.heads)
+  end
+
+  def test_up_to_date_with_rejects_a_hash_that_is_not_hex
+    error = assert_raises(Mechanomeld::Error) { @doc.up_to_date_with?(["zz"]) }
+    assert_match(/invalid change hash "zz"/, error.message)
+  end
+
+  def test_up_to_date_with_rejects_a_hash_of_the_wrong_length
+    error = assert_raises(Mechanomeld::Error) { @doc.up_to_date_with?(["abcd"]) }
+    assert_match(/invalid change hash "abcd": incorrect length/, error.message)
+  end
+
+  def test_includes_heads_is_the_same_method_as_up_to_date_with
+    @doc.change { |doc| doc["k"] = 1 }
+    earlier = @doc.heads
+    @doc.change { |doc| doc["k"] = 2 }
+    other = Mechanomeld::Document.from({"k" => 1})
+    [earlier, @doc.heads, other.heads, []].each do |heads|
+      assert_equal @doc.up_to_date_with?(heads), @doc.includes_heads?(heads)
+    end
+  end
 end
